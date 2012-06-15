@@ -172,6 +172,7 @@ header  row
 table   content
 ======  =======
 
+
 __ http://to.here
 """.splitlines()
 
@@ -179,3 +180,44 @@ __ http://to.here
     assert_equals(len(output), len(EXPECTED))
     for actual, expected in zip(output, EXPECTED):
         assert_equals(actual, expected)
+
+class TestLinkListNewLines(object):
+
+    def test_new_lines_at_the_end_of_file_stripped(self):
+        input = """
+Foo [http://to.here link]
+
+
+
+"""
+        expected = """=====
+title
+=====
+
+Foo `link`__
+
+__ http://to.here
+""".splitlines()
+
+        self._assert_transformation(input, expected)
+
+    def test_no_new_line_creates_a_separating_new_line(self):
+        input = "Foo [http://to.here link]"
+
+        expected = """=====
+title
+=====
+
+Foo `link`__
+
+__ http://to.here
+""".splitlines()
+
+        self._assert_transformation(input, expected)
+
+    def _assert_transformation(self, input, expected):
+        output = Transformer('title').transform(input.splitlines()).splitlines()
+        assert_equals(len(output), len(expected))
+        for actual, expected in zip(output, expected):
+            assert_equals(actual, expected)
+

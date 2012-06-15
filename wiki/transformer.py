@@ -148,8 +148,9 @@ class Transformer(object):
         for l in lines:
             if not self._is_ignored_pragma_line(l):
                 self._transform_line(l)
+        self._strip_trailing_new_lines()
         return self._format_title() + self._format_elements() + \
-                self._format_links() + '\n'
+                '\n' + self._format_links() + '\n'
 
     def _is_ignored_pragma_line(self, line):
         return not self._elements and (line.startswith('#') or not line.strip())
@@ -185,6 +186,10 @@ class Transformer(object):
         if self._links:
             return '\n' + '\n'.join(self._links)
         return ''
+
+    def _strip_trailing_new_lines(self):
+        while str(self._elements[len(self._elements) - 1]) == '':
+            self._elements.pop(len(self._elements) -1)
 
 
 def transform(inpath, outpath=None):
