@@ -14,7 +14,7 @@ class Line(object):
     _escaped_wiki_word_re = re.compile('!([A-Z])')
     _link_re = re.compile('\[(\\S*) +(.*?)\]')
     _wiki_word_pattern = '([A-Z][a-z]*)'
-    _wiki_word_matcher = re.compile('(%s{2,})' % _wiki_word_pattern)
+    _wiki_word_matcher = re.compile('(%s{1,})' % _wiki_word_pattern)
     _image_link_matcher = re.compile('\[http://wiki\..*?\.googlecode\.com/hg/(.*?)\]')
     _toc_re = re.compile('<wiki:toc *(max_depth=[\'"](\\d)[\'"])? */>')
     _enumerated_list_re = re.compile('^ *#')

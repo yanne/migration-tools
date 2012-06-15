@@ -49,6 +49,9 @@ class TestLineTransformation(_TransformationTest):
     def test_wiki_word_link(self):
         self._assert_line('[WikiWordLink Alias]', '[[Alias|Wiki Word Link]]')
 
+    def test_single_wiki_word_link(self):
+        self._assert_line('[Word Long Alias]', '[[Long Alias|Word]]')
+
     def test_image_link(self):
         target = 'http://wiki.ex.googlecode.com/hg/img.png'
         self._assert_line('[%s]' % target, '[[%s]]' % 'img.png')
