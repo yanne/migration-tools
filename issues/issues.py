@@ -27,7 +27,7 @@ class IssueTransfomer(object):
     def __init__(self, project, id, type_, priority, target, summary):
         self.summary = summary
         self.labels = ['Type-' + type_, 'Priority-' + priority]
-        self.milestone = 1 if target else None
+        self.target = target
         self.body, self.comments = self._get_issue_details(project, id)
 
     def _get_issue_details(self, project, id):
@@ -52,14 +52,15 @@ class IssueTransfomer(object):
 
 def main(source_project, target_project, github_username):
     repo = access_github_repo(target_project, github_username)
-    existing_issues = [i.title for i in repo.iter_issues()]
+    existing_issues = [i.title for i in repo.iter_issues(state='open')]
     for issue in get_google_code_issues(source_project):
         debug('Processing issue {title}'.format(title=issue.summary))
+        milestone = get_milestone(repo, issue)
         if issue.summary in existing_issues:
             debug('Skipping already processed issue "{title}"'.format(
-                title=issue.summary))
+                  title=issue.summary))
             continue
-        insert_issue(repo, issue)
+        insert_issue(repo, issue, milestone)
         break
 
 
@@ -81,14 +82,24 @@ def get_google_code_issues(project):
         yield IssueTransfomer(project, *row[:5])
 
 
+def get_milestone(repo, issue):
+    if not issue.target:
+        return None
+    existing_milestones = list(repo.iter_milestones())
+    milestone = [m for m in existing_milestones if m.title == issue.target]
+    if milestone:
+        return milestone[0].number
+    return repo.create_milestone(issue.target).number
+
+
 def debug(msg):
     print msg
 
 
-def insert_issue(repo, issue):
+def insert_issue(repo, issue, milestone):
     github_issue = repo.create_issue(
         issue.summary, issue.body, labels=issue.labels,
-        milestone=issue.milestone)
+        milestone=milestone)
     for comment in issue.comments:
         github_issue.create_comment(comment)
     debug('Created issue {url}'.format(url=github_issue.html_url))
