@@ -1,20 +1,19 @@
 import argparse
 import getpass
-import sys
 import csv
 from urllib2 import urlopen
-from string import Template
 
 from bs4 import BeautifulSoup
 from github3 import login
 
 
 GOOGLE_CODE_ISSUES = (
-    'http://code.google.com/p/{project}/issues/csv?'
-    'sort=priority+type&colspec=ID%20Type%20Priority%20Target%20Summary&start={start}&can=2')
+    'http://code.google.com/p/{project}/issues/csv?sort=priority+type&'
+    'colspec=ID%20Type%20Priority%20Target%20Summary&start={start}&can=2')
+ISSUE_URL = 'http://code.google.com/p/{project}/issues/detail?id={id}'
 ISSUE_BODY = u"""{description}
 
-This issue was originally reported to <a href="{url}">Google Code</a> on {date}.
+This issue was originally opened at <a href="{url}">Google Code</a> on {date}.
 """
 COMMENT = u"""Original comment by `{user}` on {date}.
 
@@ -31,8 +30,7 @@ class IssueTransfomer(object):
         self.body, self.comments = self._get_issue_details(project, id)
 
     def _get_issue_details(self, project, id):
-        url = 'http://code.google.com/p/{project}/issues/detail?id={id}'.format(
-            project=project, id=id)
+        url = ISSUE_URL.format(project=project, id=id)
         soup = BeautifulSoup(urlopen(url).read())
         return self._format_body(soup, url), self._format_comments(soup)
 
@@ -42,11 +40,11 @@ class IssueTransfomer(object):
         return ISSUE_BODY.format(description=description, date=date, url=url)
 
     def _format_comments(self, details):
-        for raw_comment in details.select('div.issuecomment'):
+        for comment in details.select('div.issuecomment'):
             content = '\n'.join(
-                [unicode(part) for part in raw_comment.find(name='pre').strings])
-            user = raw_comment.find(class_='userlink').string
-            date = raw_comment.find(class_='date').string.strip()
+                [unicode(part) for part in comment.find(name='pre').strings])
+            user = comment.find(class_='userlink').string
+            date = comment.find(class_='date').string.strip()
             yield COMMENT.format(content=content, user=user, date=date)
 
 
@@ -63,7 +61,6 @@ def main(source_project, target_project, github_username):
         insert_issue(repo, issue, milestone)
         if api_call_limit_reached(gh):
             break
-
 
 
 def access_github_repo(target_project, github_username):
@@ -93,7 +90,6 @@ def get_google_code_issues(project):
         if not paginated:
             debug('Read {num} issues from Google Code'.format(num=len(issues)))
             return issues
-
 
 
 def get_milestone(repo, issue):
@@ -129,11 +125,11 @@ def insert_issue(repo, issue, milestone):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Migrate issues from Google Code to GitHub')
+    parser = argparse.ArgumentParser(
+        description='Migrate issues from Google Code to GitHub')
     parser.add_argument('source_project')
     parser.add_argument('target_project')
     parser.add_argument('github_username')
     args = parser.parse_args()
 
     main(args.source_project, args.target_project, args.github_username)
-
