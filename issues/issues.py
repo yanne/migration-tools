@@ -27,7 +27,7 @@ class IssueTransfomer(object):
     def __init__(self, project, id, type_, priority, target, summary):
         self.summary = summary
         self.labels = ['Type-' + type_, 'Priority-' + priority]
-        self.milestone = 1 if target else 0
+        self.milestone = 1 if target else None
         self.body, self.comments = self._get_issue_details(project, id)
 
     def _get_issue_details(self, project, id):
@@ -46,14 +46,19 @@ class IssueTransfomer(object):
             content = '\n'.join(
                 [unicode(part) for part in raw_comment.find(name='pre').strings])
             user = raw_comment.find(class_='userlink').string
-            date = raw_comment.find(class_='date').string
+            date = raw_comment.find(class_='date').string.strip()
             yield COMMENT.format(content=content, user=user, date=date)
 
 
 def main(source_project, target_project, github_username):
     repo = access_github_repo(target_project, github_username)
+    existing_issues = [i.title for i in repo.iter_issues()]
     for issue in get_google_code_issues(source_project):
         debug('Processing issue {title}'.format(title=issue.summary))
+        if issue.summary in existing_issues:
+            debug('Skipping already processed issue "{title}"'.format(
+                title=issue.summary))
+            continue
         insert_issue(repo, issue)
         break
 
