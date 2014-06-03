@@ -9,9 +9,9 @@ from bs4 import BeautifulSoup
 from github3 import login
 
 
-GOOGLE_CODE_ISSUES = Template(
-    'http://code.google.com/p/${project}/issues/csv?'
-    'sort=priority+type&colspec=ID%20Type%20Priority%20Target%20Summary&can=2')
+GOOGLE_CODE_ISSUES = (
+    'http://code.google.com/p/{project}/issues/csv?'
+    'sort=priority+type&colspec=ID%20Type%20Priority%20Target%20Summary&start={start}&can=2')
 ISSUE_BODY = u"""{description}
 
 This issue was originally reported to <a href="{url}">Google Code</a> on {date}.
@@ -63,7 +63,7 @@ def main(source_project, target_project, github_username):
         insert_issue(repo, issue, milestone)
         if api_call_limit_reached(gh):
             break
-        break
+
 
 
 def access_github_repo(target_project, github_username):
@@ -75,13 +75,25 @@ def access_github_repo(target_project, github_username):
 
 
 def get_google_code_issues(project):
-    url = GOOGLE_CODE_ISSUES.substitute({'project': project})
-    debug('Fetching issues from {url}'.format(url=url))
-    reader = csv.reader(urlopen(url))
-    for row in reader:
-        if reader.line_num == 1 or not row:
-            continue
-        yield IssueTransfomer(project, *row[:5])
+    start = 0
+    issues = []
+    while True:
+        url = GOOGLE_CODE_ISSUES.format(project=project, start=start)
+        debug('Fetching issues from {url}'.format(url=url))
+        reader = csv.reader(urlopen(url))
+        paginated = False
+        for row in reader:
+            if reader.line_num == 1 or not row:
+                continue
+            if 'truncated' in row[0]:
+                start += 100
+                paginated = True
+            else:
+                issues.append(IssueTransfomer(project, *row[:5]))
+        if not paginated:
+            debug('Read {num} issues from Google Code'.format(num=len(issues)))
+            return issues
+
 
 
 def get_milestone(repo, issue):
