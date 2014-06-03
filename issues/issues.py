@@ -51,7 +51,7 @@ class IssueTransfomer(object):
 
 
 def main(source_project, target_project, github_username):
-    repo = access_github_repo(target_project, github_username)
+    gh, repo = access_github_repo(target_project, github_username)
     existing_issues = [i.title for i in repo.iter_issues(state='open')]
     for issue in get_google_code_issues(source_project):
         debug('Processing issue {title}'.format(title=issue.summary))
@@ -61,6 +61,8 @@ def main(source_project, target_project, github_username):
                   title=issue.summary))
             continue
         insert_issue(repo, issue, milestone)
+        if api_call_limit_reached(gh):
+            break
         break
 
 
@@ -69,7 +71,7 @@ def access_github_repo(target_project, github_username):
         'Github password for {user}: '.format(user=github_username))
     gh = login(github_username, password=github_password)
     repo_owner, repo_name = target_project.split('/')
-    return gh.repository(repo_owner, repo_name)
+    return gh, gh.repository(repo_owner, repo_name)
 
 
 def get_google_code_issues(project):
@@ -90,6 +92,15 @@ def get_milestone(repo, issue):
     if milestone:
         return milestone[0].number
     return repo.create_milestone(issue.target).number
+
+
+def api_call_limit_reached(gh):
+    remaining = gh.ratelimit_remaining
+    debug('Remaining API calls: {rem}'.format(rem=remaining))
+    if remaining < 50:
+        debug('API calls consumed, wait for an hour')
+        return True
+    return False
 
 
 def debug(msg):
