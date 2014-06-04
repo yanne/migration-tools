@@ -133,6 +133,8 @@ def insert_issue(repo, issue, milestone):
         milestone=milestone)
     for comment in issue.comments:
         github_issue.create_comment(comment)
+    if not issue.open:
+        github_issue.close()
     debug('Created issue {url}'.format(url=github_issue.html_url))
 
 
