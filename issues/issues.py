@@ -8,8 +8,8 @@ from github3 import login
 
 
 GOOGLE_CODE_ISSUES = (
-    'http://code.google.com/p/{project}/issues/csv?sort=priority+type&'
-    'colspec=ID%20Type%20Priority%20Target%20Summary&start={start}&can=2')
+    'http://code.google.com/p/{project}/issues/csv?start={start}&num={num}'
+    '&colspec=ID%20Status%20Type%20Priority%20Target%20Summary&can=1')
 ISSUE_URL = 'http://code.google.com/p/{project}/issues/detail?id={id}'
 ISSUE_BODY = u"""{description}
 
@@ -19,12 +19,14 @@ COMMENT = u"""Original comment by `{user}` on {date}.
 
 {content}
 """
+CLOSED_STATES = ['wontfix', 'done', 'invalid']
 
 
 class IssueTransfomer(object):
 
-    def __init__(self, project, id, type_, priority, target, summary):
+    def __init__(self, project, id, status, type_, priority, target, summary):
         self.summary = summary
+        self.open = status.lower() not in CLOSED_STATES
         self.labels = ['Type-' + type_, 'Priority-' + priority]
         self.target = target
         self.body, self.comments = self._get_issue_details(project, id)
@@ -47,16 +49,19 @@ class IssueTransfomer(object):
             date = comment.find(class_='date').string.strip()
             yield COMMENT.format(content=content, user=user, date=date)
 
+    def __str__(self):
+        return 'Title: "{0}" Open: {1} Target: {2} Labels: {3}'.format(
+            self.summary, self.open, self.target, self.labels)
 
-def main(source_project, target_project, github_username):
+
+def main(source_project, target_project, github_username, issue_limit):
     gh, repo = access_github_repo(target_project, github_username)
-    existing_issues = [i.title for i in repo.iter_issues(state='open')]
-    for issue in get_google_code_issues(source_project):
-        debug('Processing issue {title}'.format(title=issue.summary))
+    existing_issues = [i.title for i in repo.iter_issues()]
+    for issue in get_google_code_issues(source_project, issue_limit):
+        debug('Processing issue:\n{issue}'.format(issue=issue))
         milestone = get_milestone(repo, issue)
         if issue.summary in existing_issues:
-            debug('Skipping already processed issue "{title}"'.format(
-                  title=issue.summary))
+            debug('Skipping already processed issue')
             continue
         insert_issue(repo, issue, milestone)
         if api_call_limit_reached(gh):
@@ -71,11 +76,18 @@ def access_github_repo(target_project, github_username):
     return gh, gh.repository(repo_owner, repo_name)
 
 
-def get_google_code_issues(project):
+def get_google_code_issues(project, issue_limit):
+    limit_issues = issue_limit > 0
     start = 0
     issues = []
+    num = 100
     while True:
-        url = GOOGLE_CODE_ISSUES.format(project=project, start=start)
+        if limit_issues:
+            if issue_limit <= 0:
+                return issues
+            num = min(issue_limit, 100)
+            issue_limit -= 100
+        url = GOOGLE_CODE_ISSUES.format(project=project, start=start, num=num)
         debug('Fetching issues from {url}'.format(url=url))
         reader = csv.reader(urlopen(url))
         paginated = False
@@ -86,7 +98,7 @@ def get_google_code_issues(project):
                 start += 100
                 paginated = True
             else:
-                issues.append(IssueTransfomer(project, *row[:5]))
+                issues.append(IssueTransfomer(project, *row[:6]))
         if not paginated:
             debug('Read {num} issues from Google Code'.format(num=len(issues)))
             return issues
@@ -130,6 +142,8 @@ if __name__ == '__main__':
     parser.add_argument('source_project')
     parser.add_argument('target_project')
     parser.add_argument('github_username')
+    parser.add_argument('-n', dest='limit', default=0)
     args = parser.parse_args()
 
-    main(args.source_project, args.target_project, args.github_username)
+    main(args.source_project, args.target_project, args.github_username,
+         int(args.limit))
