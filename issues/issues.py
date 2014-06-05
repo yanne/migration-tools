@@ -27,9 +27,19 @@ class IssueTransfomer(object):
     def __init__(self, project, id, status, type_, priority, target, summary):
         self.summary = summary
         self.open = status.lower() not in CLOSED_STATES
-        self.labels = ['Type-' + type_, 'Priority-' + priority]
+        self.labels = self._get_labels(type_, priority, status)
         self.target = target
         self.body, self.comments = self._get_issue_details(project, id)
+
+    def _get_labels(self, type_, priority, status):
+        labels = []
+        if type_:
+            labels.append(type)
+        if priority:
+            labels.append('Prio-' + priority)
+        if status:
+            labels.append(status)
+        return labels
 
     def _get_issue_details(self, project, id):
         url = ISSUE_URL.format(project=project, id=id)
