@@ -57,6 +57,8 @@ class IssueTransfomer(object):
         for comment in details.select('div.issuecomment'):
             content = '\n'.join(
                 [unicode(part) for part in comment.find(name='pre').strings])
+            if '(No comment was entered for this change.)' in content:
+                continue
             user = comment.find(class_='userlink').string
             date = comment.find(class_='date').string.strip()
             yield COMMENT.format(content=content, user=user, date=date)
