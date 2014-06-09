@@ -1,7 +1,7 @@
 import argparse
 import getpass
 import csv
-from urllib2 import urlopen
+import urllib2
 
 from bs4 import BeautifulSoup
 from github3 import login
@@ -24,12 +24,13 @@ CLOSED_STATES = ['wontfix', 'done', 'invalid']
 
 class IssueTransfomer(object):
 
-    def __init__(self, project, id, status, type_, priority, target, summary):
+    def __init__(self, project, id_, status, type_, priority, target, summary):
+        self.id = id_
         self.summary = summary
         self.open = status.lower() not in CLOSED_STATES
         self.labels = self._get_labels(type_, priority, status)
         self.target = target
-        self.body, self.comments = self._get_issue_details(project, id)
+        self.body, self.comments = self._get_issue_details(project, id_)
 
     def _get_labels(self, type_, priority, status):
         labels = []
@@ -41,9 +42,10 @@ class IssueTransfomer(object):
             labels.append(status)
         return labels
 
-    def _get_issue_details(self, project, id):
-        url = ISSUE_URL.format(project=project, id=id)
-        soup = BeautifulSoup(urlopen(url).read())
+    def _get_issue_details(self, project, id_):
+        opener = urllib2.build_opener()
+        url = ISSUE_URL.format(project=project, id=id_)
+        soup = BeautifulSoup(opener.open(url).read())
         return self._format_body(soup, url), self._format_comments(soup)
 
     def _format_body(self, details, url):
@@ -60,8 +62,9 @@ class IssueTransfomer(object):
             yield COMMENT.format(content=content, user=user, date=date)
 
     def __str__(self):
-        return 'Title: "{0}" Open: {1} Target: {2} Labels: {3}'.format(
-            self.summary, self.open, self.target, self.labels)
+        tmpl = 'Id: {0}, Title: "{1}" Open: {2} Target: {3} Labels: {4}'
+        return tmpl.format(self.id, self.summary, self.open, self.target,
+                           self.labels)
 
 
 def main(source_project, target_project, github_username, issue_limit):
@@ -99,7 +102,7 @@ def get_google_code_issues(project, issue_limit):
             issue_limit -= 100
         url = GOOGLE_CODE_ISSUES.format(project=project, start=start, num=num)
         debug('Fetching issues from {url}'.format(url=url))
-        reader = csv.reader(urlopen(url))
+        reader = csv.reader(urllib2.urlopen(url))
         paginated = False
         for row in reader:
             if reader.line_num == 1 or not row:
