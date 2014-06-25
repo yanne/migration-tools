@@ -15,9 +15,9 @@ ISSUE_BODY = u"""{description}
 
 This issue was originally opened at <a href="{url}">Google Code</a> on {date}.
 """
-COMMENT = u"""Original comment by `{user}` on {date}.
+COMMENT = u"""[Original comment]({url}) by `{user}` on {date}.
 
-{content}
+{body}
 """
 CLOSED_STATES = ['wontfix', 'done', 'invalid']
 
@@ -35,7 +35,7 @@ class IssueTransfomer(object):
     def _get_labels(self, type_, priority, status):
         labels = []
         if type_:
-            labels.append(type)
+            labels.append(type_)
         if priority:
             labels.append('Prio-' + priority)
         if status:
@@ -46,22 +46,23 @@ class IssueTransfomer(object):
         opener = urllib2.build_opener()
         url = ISSUE_URL.format(project=project, id=id_)
         soup = BeautifulSoup(opener.open(url).read())
-        return self._format_body(soup, url), self._format_comments(soup)
+        return self._format_body(soup, url), self._format_comments(soup, url)
 
     def _format_body(self, details, url):
         description = details.select('div.issuedescription pre')[0].string
         date = details.select('div.issuedescription .date')[0].string
         return ISSUE_BODY.format(description=description, date=date, url=url)
 
-    def _format_comments(self, details):
-        for comment in details.select('div.issuecomment'):
-            content = '\n'.join(
+    def _format_comments(self, details, issue_url):
+        for (idx, comment) in enumerate(details.select('div.issuecomment')):
+            body = '\n'.join(
                 [unicode(part) for part in comment.find(name='pre').strings])
-            if '(No comment was entered for this change.)' in content:
+            if '(No comment was entered for this change.)' in body:
                 continue
+            url = '{}#c{}'.format(issue_url, idx + 1)
             user = comment.find(class_='userlink').string
             date = comment.find(class_='date').string.strip()
-            yield COMMENT.format(content=content, user=user, date=date)
+            yield COMMENT.format(url=url, body=body, user=user, date=date)
 
     def __str__(self):
         tmpl = 'Id: {0}, Title: "{1}" Open: {2} Target: {3} Labels: {4}'
