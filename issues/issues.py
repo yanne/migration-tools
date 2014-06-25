@@ -92,14 +92,15 @@ class DummyIssue(object):
         self.comments = []
 
 
-def main(source_project, target_project, github_username, issue_limit):
+def main(source_project, target_project, github_username, issue_limit,
+         id_sync):
     gh, repo = access_github_repo(target_project, github_username)
     existing_issues = [i.number for i in repo.iter_issues(state='all')]
     sync_id = 1
     for issue in get_google_code_issues(source_project, issue_limit):
         debug('Processing issue:\n{issue}'.format(issue=issue))
         milestone = get_milestone(repo, issue)
-        if issue.id in existing_issues:
+        if id_sync and issue.id in existing_issues:
             debug('Skipping already processed issue')
             sync_id += 1
             continue
@@ -189,8 +190,9 @@ if __name__ == '__main__':
     parser.add_argument('source_project')
     parser.add_argument('target_project')
     parser.add_argument('github_username')
-    parser.add_argument('-n', dest='limit', default=0)
+    parser.add_argument('-n', '--limit', dest='limit', default=0)
+    parser.add_argument('--no-id-sync', action='store_true')
     args = parser.parse_args()
 
     main(args.source_project, args.target_project, args.github_username,
-         int(args.limit))
+         int(args.limit), id_sync=not args.no_id_sync)
