@@ -19,7 +19,7 @@ COMMENT = u"""[Original comment]({url}) by `{user}` on {date}.
 
 {body}
 """
-CLOSED_STATES = ['wontfix', 'done', 'invalid']
+CLOSED_STATES = ['wontfix', 'done', 'invalid', 'fixed']
 
 
 class IssueTransfomer(object):
@@ -70,16 +70,35 @@ class IssueTransfomer(object):
                            self.labels)
 
 
+class DummyIssue(object):
+
+    def __init__(self, id_):
+        self.id = id_
+        self.summary = "Dummy issue"
+        self.open = False
+        self.labels = []
+        self.target = ''
+        self.body = 'Created in place of missing (most likely deleted) Google Code issue'
+        self.comments = []
+
+
 def main(source_project, target_project, github_username, issue_limit):
     gh, repo = access_github_repo(target_project, github_username)
     existing_issues = [i.number for i in repo.iter_issues(state='all')]
+    sync_id = 1
     for issue in get_google_code_issues(source_project, issue_limit):
         debug('Processing issue:\n{issue}'.format(issue=issue))
         milestone = get_milestone(repo, issue)
         if issue.id in existing_issues:
             debug('Skipping already processed issue')
+            sync_id += 1
             continue
+        while issue.id > sync_id:
+            # Insert placeholder issues for missing/deleted GCode issues
+            insert_issue(repo, DummyIssue(sync_id), milestone=None)
+            sync_id += 1
         insert_issue(repo, issue, milestone)
+        sync_id += 1
         if api_call_limit_reached(gh):
             break
 
