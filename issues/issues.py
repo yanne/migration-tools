@@ -25,7 +25,7 @@ CLOSED_STATES = ['wontfix', 'done', 'invalid']
 class IssueTransfomer(object):
 
     def __init__(self, project, id_, status, type_, priority, target, summary):
-        self.id = id_
+        self.id = int(id_)
         self.summary = summary
         self.open = status.lower() not in CLOSED_STATES
         self.labels = self._get_labels(type_, priority, status)
@@ -72,11 +72,11 @@ class IssueTransfomer(object):
 
 def main(source_project, target_project, github_username, issue_limit):
     gh, repo = access_github_repo(target_project, github_username)
-    existing_issues = [i.title for i in repo.iter_issues()]
+    existing_issues = [i.number for i in repo.iter_issues(state='all')]
     for issue in get_google_code_issues(source_project, issue_limit):
         debug('Processing issue:\n{issue}'.format(issue=issue))
         milestone = get_milestone(repo, issue)
-        if issue.summary in existing_issues:
+        if issue.id in existing_issues:
             debug('Skipping already processed issue')
             continue
         insert_issue(repo, issue, milestone)
