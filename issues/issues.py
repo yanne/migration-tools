@@ -49,20 +49,29 @@ class IssueTransfomer(object):
         return self._format_body(soup, url), self._format_comments(soup, url)
 
     def _format_body(self, details, url):
-        description = details.select('div.issuedescription pre')[0].string
+        description = self._text_content_of(
+            details.select('div.issuedescription pre')[0])
         date = details.select('div.issuedescription .date')[0].string
         return ISSUE_BODY.format(description=description, date=date, url=url)
 
     def _format_comments(self, details, issue_url):
         for (idx, comment) in enumerate(details.select('div.issuecomment')):
-            body = '\n'.join(
-                [unicode(part) for part in comment.find(name='pre').strings])
+            body = '\n'.join([self._text_content_of(part)
+                              for part in comment.select('pre')])
             if '(No comment was entered for this change.)' in body:
                 continue
             url = '{}#c{}'.format(issue_url, idx + 1)
             user = comment.find(class_='userlink').string
             date = comment.find(class_='date').string.strip()
             yield COMMENT.format(url=url, body=body, user=user, date=date)
+
+    def _text_content_of(self, element):
+        replacements = [('<pre>', ''), ('</pre>', ''), ('<b>', '**'),
+                        ('</b>', '**'), ('<br/>', '\n'), ('%', '&#37;')]
+        text = element.prettify().strip()
+        for orig, replacement in replacements:
+            text = text.replace(orig, replacement)
+        return text
 
     def __str__(self):
         tmpl = 'Id: {0}, Title: "{1}" Open: {2} Target: {3} Labels: {4}'
@@ -78,7 +87,8 @@ class DummyIssue(object):
         self.open = False
         self.labels = []
         self.target = ''
-        self.body = 'Created in place of missing (most likely deleted) Google Code issue'
+        self.body = ('Created in place of missing (most likely deleted)'
+                     ' Google Code issue')
         self.comments = []
 
 
